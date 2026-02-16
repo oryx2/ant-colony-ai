@@ -2,7 +2,10 @@ import { ScoutAnt } from './agents/scout.js';
 import { ForagerAnt } from './agents/forager.js';
 import { QueenAnt } from './agents/queen.js';
 import { Environment, PheromoneSystem, log, saveColonyState } from './environment/index.js';
+import { Visualizer } from './environment/visualizer.js';
 import { CONFIG } from './config.js';
+import { join } from 'path';
+import { writeFileSync } from 'fs';
 
 async function main() {
   log('🐜 蚁穴模拟启动');
@@ -12,6 +15,7 @@ async function main() {
   // 初始化环境
   const environment = new Environment();
   const pheromoneSystem = new PheromoneSystem();
+  const visualizer = new Visualizer();
   
   // 清理之前的信息素
   pheromoneSystem.clear();
@@ -26,12 +30,12 @@ async function main() {
   // 创建蚁后
   const queen = new QueenAnt(environment, pheromoneSystem);
 
-  // 创建侦察蚁
+  // 创建侦察蚁（随机起始位置）
   const scouts: ScoutAnt[] = [];
   for (let i = 0; i < CONFIG.SCOUT_COUNT; i++) {
     const scout = new ScoutAnt(
       `scout-${i}`,
-      { x: 0, y: 0 },
+      { x: Math.floor(Math.random() * 3), y: Math.floor(Math.random() * 3) },
       environment,
       pheromoneSystem
     );
@@ -39,7 +43,7 @@ async function main() {
     queen.registerAnt(scout.getId(), 'scout');
   }
 
-  // 创建采集蚁
+  // 创建采集蚁（从巢穴出发）
   const foragers: ForagerAnt[] = [];
   for (let i = 0; i < CONFIG.FORAGER_COUNT; i++) {
     const forager = new ForagerAnt(
@@ -54,24 +58,61 @@ async function main() {
 
   log('\n--- 模拟开始 ---\n');
 
-  // 并行运行所有 Agent
-  const promises: Promise<void>[] = [
-    queen.run(),
-    ...scouts.map(s => s.run()),
-    ...foragers.map(f => f.run()),
-  ];
+  // 运行可视化循环
+  let tick = 0;
+  const maxTicks = CONFIG.MAX_TURNS;
+  const frames: string[] = [];
 
-  // 定期衰减信息素和保存状态
-  const intervalId = setInterval(() => {
-    pheromoneSystem.decay();
-    const state = queen.getStatus();
-    saveColonyState(state);
-  }, 2000);
+  // 可视化循环
+  const runSimulation = async () => {
+    while (tick < maxTicks) {
+      tick++;
+      
+      // 更新所有 Agent
+      scouts.forEach(scout => scout.tick());
+      foragers.forEach(forager => forager.tick());
+      
+      // 蚁后处理消息
+      // (queen 的消息处理在 handleMessage 中自动完成)
+      
+      // 信息素衰减
+      if (tick % 5 === 0) {
+        pheromoneSystem.decay();
+      }
 
-  // 等待所有 Agent 完成
-  await Promise.all(promises);
+      // 获取所有 Agent 位置
+      const agentPositions = [
+        { id: queen.getId(), role: queen.getRole(), position: queen.getPosition() },
+        ...scouts.map(s => ({ id: s.getId(), role: s.getRole(), position: s.getPosition() })),
+        ...foragers.map(f => ({ id: f.getId(), role: f.getRole(), position: f.getPosition() })),
+      ];
 
-  clearInterval(intervalId);
+      // 渲染帧
+      const frame = visualizer.render(
+        environment,
+        pheromoneSystem,
+        agentPositions,
+        tick,
+        queen.getStatus().foodStorage
+      );
+      
+      frames.push(frame);
+      
+      // 清屏并显示
+      console.clear();
+      console.log(frame);
+
+      // 保存状态
+      if (tick % 10 === 0) {
+        saveColonyState(queen.getStatus());
+      }
+
+      // 延迟
+      await new Promise(r => setTimeout(r, 300));
+    }
+  };
+
+  await runSimulation();
 
   // 最终状态
   log('\n--- 模拟结束 ---');
@@ -80,8 +121,16 @@ async function main() {
   log(`已知食物源: ${finalStatus.discoveredFood.length} 个`);
   log(`剩余信息素标记: ${pheromoneSystem.getAll().length} 个`);
 
+  // 保存输出
+  const outputDir = CONFIG.OUTPUT_DIR;
+  writeFileSync(join(outputDir, 'final-frame.txt'), frames[frames.length - 1]);
+  writeFileSync(join(outputDir, 'animation.txt'), frames.join('\n\n=== Frame ===\n\n'));
+  
   saveColonyState(finalStatus);
-  log('状态已保存到 output/colony-state.json');
+  log('输出已保存到 output/ 目录');
+  log('- final-frame.txt: 最终画面');
+  log('- animation.txt: 完整动画');
+  log('- colony-state.json: 最终状态');
 }
 
 main().catch(err => {

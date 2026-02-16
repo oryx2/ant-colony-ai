@@ -12,6 +12,46 @@ export class ForagerAnt extends LLMAgent {
   private targetFood: Position | null = null;
   private state: 'seeking' | 'collecting' | 'returning' = 'seeking';
 
+  // 可视化用的简化 tick
+  tick(): void {
+    const cell = this.environment.getCell(this.position);
+    const nearHome = this.position.x === 0 && this.position.y === 0;
+
+    // 状态转换
+    if (this.state === 'seeking' && cell && cell.amount > 0) {
+      this.state = 'collecting';
+    } else if (this.state === 'collecting' && this.carrying >= this.maxCapacity) {
+      this.state = 'returning';
+    } else if (this.state === 'returning' && nearHome) {
+      // 卸载
+      if (this.carrying > 0) {
+        this.sendMessage('queen', 'collection', {
+          amount: this.carrying,
+          foragerId: this.id,
+        });
+        this.log(`卸载 ${this.carrying} 单位食物`);
+        this.carrying = 0;
+      }
+      this.state = 'seeking';
+    }
+
+    // 执行动作
+    if (this.state === 'collecting' && cell) {
+      const toCollect = Math.min(this.maxCapacity - this.carrying, cell.amount, 5);
+      const collected = this.environment.collectFood(this.position, toCollect);
+      this.carrying += collected;
+    }
+
+    // 移动
+    const newPos = this.decideMove();
+    this.position = newPos;
+
+    // 返回时标记 home 路径
+    if (this.state === 'returning') {
+      this.pheromoneSystem.mark(this.position, 'home', this.id, 0.3);
+    }
+  }
+
   constructor(
     id: string,
     startPosition: Position,

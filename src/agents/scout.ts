@@ -9,6 +9,50 @@ import type { AgentMessage } from '../config.js';
 export class ScoutAnt extends LLMAgent {
   private maxExplorationSteps = 20;
   private exploredCells = new Set<string>();
+  private isRunning = false;
+
+  // 可视化用的简化 tick
+  tick(): void {
+    const cellKey = `${this.position.x},${this.position.y}`;
+    this.exploredCells.add(cellKey);
+
+    const cell = this.environment.getCell(this.position);
+    
+    if (cell && cell.amount > 0) {
+      // 发现食物，标记信息素
+      this.pheromoneSystem.mark(this.position, 'food', this.id);
+      this.sendMessage('queen', 'discovery', {
+        type: 'food',
+        position: this.position,
+        amount: cell.amount,
+        scoutId: this.id,
+      });
+      this.log(`发现食物！位置(${this.position.x},${this.position.y})`);
+    }
+
+    // 随机移动（偏向未探索区域）
+    const directions = [
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+    ];
+    
+    // 简单启发：避免重复访问
+    const validMoves = directions.filter(d => {
+      const newX = this.position.x + d.dx;
+      const newY = this.position.y + d.dy;
+      const newKey = `${newX},${newY}`;
+      return newX >= 0 && newX < 20 && newY >= 0 && newY < 20 && !this.exploredCells.has(newKey);
+    });
+
+    const move = validMoves.length > 0 
+      ? validMoves[Math.floor(Math.random() * validMoves.length)]
+      : directions[Math.floor(Math.random() * directions.length)];
+
+    this.position.x = Math.max(0, Math.min(19, this.position.x + move.dx));
+    this.position.y = Math.max(0, Math.min(19, this.position.y + move.dy));
+  }
 
   constructor(
     id: string,

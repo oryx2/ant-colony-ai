@@ -122,8 +122,25 @@ export abstract class BaseAgent {
     return { ...this.position };
   }
 
+  setPosition(pos: Position): void {
+    this.position = { ...pos };
+  }
+
   getRole(): string {
     return this.role;
+  }
+
+  // 用于可视化的简化移动（不调用 LLM）
+  randomMove(): void {
+    const directions = [
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+    ];
+    const dir = directions[Math.floor(Math.random() * directions.length)];
+    this.position.x = Math.max(0, Math.min(19, this.position.x + dir.dx));
+    this.position.y = Math.max(0, Math.min(19, this.position.y + dir.dy));
   }
 }
 

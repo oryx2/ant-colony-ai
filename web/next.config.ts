@@ -1,11 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  distDir: 'dist',
-  images: {
-    unoptimized: true,
-  },
+  // 使用默认 .next 输出目录
 };
 
 export default nextConfig;

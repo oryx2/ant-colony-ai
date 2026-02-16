@@ -13,7 +13,13 @@
     "type": "git",
     "url": "git+https://github.com/oryx2/ant-colony-ai.git"
   },
-  "keywords": ["ai", "agent", "simulation", "ant-colony", "multi-agent"],
+  "keywords": [
+    "ai",
+    "agent",
+    "simulation",
+    "ant-colony",
+    "multi-agent"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
@@ -25,10 +31,15 @@
     "@ai-sdk/openai": "^3.0.29",
     "ai": "^6.0.86",
     "dotenv": "^17.3.1",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
